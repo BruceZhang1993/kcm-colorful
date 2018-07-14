@@ -1,5 +1,6 @@
 #include <QImage>
 #include <QRgb>
+#include <queue>
 #include <algorithm>
 #include "mmcq.h"
 
@@ -13,6 +14,18 @@ MMCQ::MMCQ(QString file)
 MMCQ::~MMCQ()
 {
     delete img;
+}
+
+QList<QColor> MMCQ::get_palette(int color_count, int quality)
+{
+    for (int i = 0; i < img->colorCount(); i = i + quality) {
+        if (qAlpha(img->color(i)) >= 125) {
+            if (qRed(img->color(i)) <= 250 && qGreen(img->color(i)) <= 250 && qBlue(img->color(i)) <= 250) {
+                pixels.push_back(img->color(i));
+            }
+        }
+    }
+    auto colors = quantize(color_count);
 }
 
 int MMCQ::get_color_index(int r, int g, int b)
@@ -36,8 +49,8 @@ int MMCQ::get_vbox_color_sum(VBox v)
 void MMCQ::calc_histo()
 {
     int index = 0;
-    for (int i = 0; i < img->colorCount(); i++) {
-        index = get_color_index(qRed(img->color(i)) >> rshift, qGreen(img->color(i)) >> rshift, qBlue(img->color(i)) >> rshift);
+    for (int i = 0; i < pixels.size(); i++) {
+        index = get_color_index(qRed(pixels[i]) >> rshift, qGreen(pixels[i]) >> rshift, qBlue(pixels[i]) >> rshift);
         histo[index]++;
     }
 }
@@ -51,10 +64,10 @@ VBox MMCQ::gen_vbox()
     int gmax = 0;
     int bmin = 1000000;
     int bmax = 0;
-    for (int i = 0; i < img->colorCount(); i++) {
-        rval = qRed(img->color(i)) >> rshift;
-        gval = qGreen(img->color(i)) >> rshift;
-        bval = qBlue(img->color(i)) >> rshift;
+    for (int i = 0; i < pixels.size(); i++) {
+        rval = qRed(pixels[i]) >> rshift;
+        gval = qGreen(pixels[i]) >> rshift;
+        bval = qBlue(pixels[i]) >> rshift;
 
         rmin = std::min(rval, rmin);
         rmax = std::max(rval, rmax);
@@ -190,6 +203,75 @@ std::vector<VBox> MMCQ::do_median_cut(VBox v)
     return ret;
 }
 
+std::vector<VBox> MMCQ::quantize(int max_color)
+{
+    std::vector<VBox> ret;
+    calc_histo();
+
+    auto vbox = gen_vbox();
+
+    auto cmp1 = [&](VBox left, VBox right) {
+        auto left_val = get_vbox_color_sum(left);
+        auto right_val = get_vbox_color_sum(right);
+        return left_val < right_val;
+    };
+    std::priority_queue<int, std::vector<VBox>, decltype(cmp1)> pq1(cmp1);
+    pq1.push(vbox);
+    quantize_iter<decltype(pq1)>(pq1, max_color * fract_by_populations);
+
+    auto cmp2 = [&](VBox left, VBox right) {
+        auto left_val = get_vbox_color_sum(left);
+        auto right_val = get_vbox_color_sum(right);
+        left_val = left_val * (left.r2 - left.r1) * (left.g2 - left.g1) * (left.b2 - left.b1);
+        right_val = right_val * (right.r2 - right.r1) * (right.g2 - right.g1) * (right.b2 - right.b1);
+        return left_val < right_val;
+    };
+    std::priority_queue<int, std::vector<VBox>, decltype(cmp2)> pq2(cmp2);
+    while (!pq1.empty()) {
+        pq2.push(pq1.top());
+        pq1.pop();
+    }
+    quantize_iter<decltype(pq2)>(pq2, max_color - pq2.size());
+
+    while (!pq2.empty()) {
+        ret.push_back(pq2.top());
+        pq2.pop();
+    }
+    return ret;
+}
+
+template<typename T>
+void MMCQ::quantize_iter(MMCQ::T &t, int target)
+{
+    int n_color = 1;
+    int i = 0;
+    while (i < max_iter) {
+        auto v = t.top();
+        t.pop();
+        if (!get_vbox_color_sum(v)) {
+            t.push(v);
+            i++;
+            continue;
+        }
+        auto vboxes = do_median_cut(v);
+        t.push(vboxes[0]);
+        if (vboxes.size() > 1) {
+            t.push(vboxes[1]);
+            n_color++;
+        }
+
+        if (n_color >= target) {
+            return;
+        }
+
+        if (i > max_iter) {
+            return;
+        }
+        i++;
+    }
+}
+
+
 VBox::VBox()
 {
     r1 = 0;
@@ -209,4 +291,5 @@ VBox::VBox(int r1, int g1, int b1, int r2, int g2, int b2)
     this->g2 = g2;
     this->b2 = b2;
 }
+
 
