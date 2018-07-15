@@ -47,7 +47,7 @@ void KcmColorfulHelper::run()
 //    connect(colorExtractProc, &QProcess::readyReadStandardOutput, this, &KcmColorfulHelper::dealStdOut);
 //    colorExtractProc->start("python3", arg);
 
-    palette = mmcq->get_palette(6);
+    palette = mmcq->get_palette(16);
     calcColor();
     qDebug() << c->red() << c->green() << c->blue();
     readTemplateCS();
@@ -347,16 +347,19 @@ void KcmColorfulHelper::calcColor()
     int p_min = INT_MAX;
     int p_tmp = 0;
     int p_average = 0;
+    int weight_of_order[16] = {160, 150, 140, 130, 120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10};
     QColor color;
 
     QList<QColor>::iterator it;
-    for (it = palette.begin(); it != palette.end(); ++it) {
+    for (it = palette.begin(); it != palette.end() - (palette.size() / 2); ++it) {
         qDebug() << QString("%1,%2,%3").arg(QString::number(it->red()), QString::number(it->green()), QString::number(it->blue()));
         p_tmp = 0;
         p_average = (it->red() + it->green() + it->blue()) / 3;
 //       p_tmp = pow(it->red() - 200, 2) + pow(it->green() - 200, 2) + pow(it->blue() - 200, 2);
         p_tmp = abs((it->red() + it->green() + it->blue()) - (150 * 3));
         p_tmp -= 3 * sqrt((pow(it->red() - p_average, 2) + pow(it->green() - p_average, 2) + pow(it->blue() - p_average, 2)) / 3);
+        p_tmp -= weight_of_order[it - palette.begin()];
+        p_tmp += it->green();
        if (p_tmp < p_min) {
            color = *it;
            p_min = p_tmp;
@@ -365,16 +368,16 @@ void KcmColorfulHelper::calcColor()
 
 
 
-    int d_min = INT_MAX;
-    int tmp = 0;
-    int index = 0;
-    for (int i = 0; i < 256; i++) {
-        tmp = pow(colordata[i][0] - color.red(), 2) + pow(colordata[i][1] - color.green(), 2) + pow(colordata[i][2] - color.blue(), 2);
-        if (tmp < d_min) {
-            index = i;
-            d_min = tmp;
-        }
-    }
+//    int d_min = INT_MAX;
+//    int tmp = 0;
+//    int index = 0;
+//    for (int i = 0; i < 256; i++) {
+//        tmp = pow(colordata[i][0] - color.red(), 2) + pow(colordata[i][1] - color.green(), 2) + pow(colordata[i][2] - color.blue(), 2);
+//        if (tmp < d_min) {
+//            index = i;
+//            d_min = tmp;
+//        }
+//    }
 //    c = new QColor(colordata[index][0], colordata[index][1], colordata[index][2]);
     c = new QColor(color);
 }
