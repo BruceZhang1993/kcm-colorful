@@ -4,8 +4,6 @@
 ## Requirements
 * Qt5
 * KDE Frameworks 5
-* Python3
-* [color-thief-py](https://github.com/fengsp/color-thief-py)
 * cmake
 * extra-cmake-modules
 
