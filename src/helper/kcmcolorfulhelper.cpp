@@ -1,5 +1,6 @@
 #include "kcmcolorfulhelper.h"
 #include "colordata.h"
+#include "mmcq.h"
 #include <climits>
 #include <cmath>
 #include <QSettings>
@@ -16,6 +17,7 @@ KcmColorfulHelper::KcmColorfulHelper(int argc, char *argv[], QObject *parent) : 
     qsrand((uint)time.msec());
     mConfig = KSharedConfig::openConfig(QStringLiteral("kdeglobals"));
     wallpaperFilePath = QString(argv[1]);
+    mmcq = new MMCQ(wallpaperFilePath);
 //    genCSName();
 //    getPrevCSName();
 //    readDefaultCS();
@@ -24,26 +26,34 @@ KcmColorfulHelper::KcmColorfulHelper(int argc, char *argv[], QObject *parent) : 
 KcmColorfulHelper::~KcmColorfulHelper()
 {
     delete c;
-    colorExtractProc->terminate();
-    colorExtractProc->waitForFinished(3000);
-    colorExtractProc->deleteLater();
+//    colorExtractProc->terminate();
+//    colorExtractProc->waitForFinished(3000);
+//    colorExtractProc->deleteLater();
     mConfig->markAsClean();
     tConfig->markAsClean();
 }
 
 void KcmColorfulHelper::run()
 {
-    QStringList arg;
+//    QStringList arg;
 
-    colorExtractProc = new QProcess(this);
+//    colorExtractProc = new QProcess(this);
 
-    arg.append("-c");
-    arg.append("exec(\"\"\"\\nfrom colorthief import ColorThief\\nimport sys\\ncolor_thief = ColorThief(sys.argv[1])\\npalette = color_thief.get_palette(color_count=6)\\nfor color in palette:\\n    print(\"IsoaSFlus,{},{},{}\".format(color[0], color[1], color[2]))\\n    sys.stdout.flush()\\nprint('EOF')\\n\"\"\")");
-    //arg.append("exec(\"\"\"\\nfrom colorthief import ColorThief\\nimport sys\\ncolor_thief = ColorThief(sys.argv[1])\\ndominant_color = color_thief.get_color(quality=10)\\nprint(\"IsoaSFlus,{},{},{}\".format(dominant_color[0], dominant_color[1], dominant_color[2]))\\nsys.stdout.flush()\\n\"\"\")");
-    arg.append(wallpaperFilePath);
+//    arg.append("-c");
+//    arg.append("exec(\"\"\"\\nfrom colorthief import ColorThief\\nimport sys\\ncolor_thief = ColorThief(sys.argv[1])\\npalette = color_thief.get_palette(color_count=6)\\nfor color in palette:\\n    print(\"IsoaSFlus,{},{},{}\".format(color[0], color[1], color[2]))\\n    sys.stdout.flush()\\nprint('EOF')\\n\"\"\")");
+//    //arg.append("exec(\"\"\"\\nfrom colorthief import ColorThief\\nimport sys\\ncolor_thief = ColorThief(sys.argv[1])\\ndominant_color = color_thief.get_color(quality=10)\\nprint(\"IsoaSFlus,{},{},{}\".format(dominant_color[0], dominant_color[1], dominant_color[2]))\\nsys.stdout.flush()\\n\"\"\")");
+//    arg.append(wallpaperFilePath);
 
-    connect(colorExtractProc, &QProcess::readyReadStandardOutput, this, &KcmColorfulHelper::dealStdOut);
-    colorExtractProc->start("python3", arg);
+//    connect(colorExtractProc, &QProcess::readyReadStandardOutput, this, &KcmColorfulHelper::dealStdOut);
+//    colorExtractProc->start("python3", arg);
+
+    palette = mmcq->get_palette(6);
+    calcColor();
+    qDebug() << c->red() << c->green() << c->blue();
+    readTemplateCS();
+    changeColorScheme(tConfig);
+    save();
+//    QCoreApplication::exit();
 }
 
 void KcmColorfulHelper::getPrevCSName()
@@ -341,6 +351,7 @@ void KcmColorfulHelper::calcColor()
 
     QList<QColor>::iterator it;
     for (it = palette.begin(); it != palette.end(); ++it) {
+        qDebug() << QString("%1,%2,%3").arg(QString::number(it->red()), QString::number(it->green()), QString::number(it->blue()));
         p_tmp = 0;
         p_average = (it->red() + it->green() + it->blue()) / 3;
 //       p_tmp = pow(it->red() - 200, 2) + pow(it->green() - 200, 2) + pow(it->blue() - 200, 2);
@@ -352,7 +363,7 @@ void KcmColorfulHelper::calcColor()
        }
     }
 
-    qDebug() << QString("%1,%2,%3").arg(QString::number(color.red()), QString::number(color.green()), QString::number(color.blue()));
+
 
     int d_min = INT_MAX;
     int tmp = 0;
@@ -368,25 +379,25 @@ void KcmColorfulHelper::calcColor()
     c = new QColor(color);
 }
 
-void KcmColorfulHelper::dealStdOut()
-{
-    while(!colorExtractProc->atEnd())
-    {
-        QString rgb(colorExtractProc->readLine());
-        if (rgb.contains("IsoaSFlus")) {
-            qDebug() << rgb;
-            QStringList rgbList = rgb.split(",");
-            palette.append(QColor(rgbList[1].toInt(), rgbList[2].toInt(), rgbList[3].toInt()));
-//            c = new QColor(rgbList[1].toInt(), rgbList[2].toInt(), rgbList[3].toInt());
-        } else if (rgb.contains("EOF")) {
-            calcColor();
-            qDebug() << c->red() << c->green() << c->blue();
-            readTemplateCS();
-            changeColorScheme(tConfig);
-            save();
-            QCoreApplication::exit();
-        }
-    }
-}
+//void KcmColorfulHelper::dealStdOut()
+//{
+//    while(!colorExtractProc->atEnd())
+//    {
+//        QString rgb(colorExtractProc->readLine());
+//        if (rgb.contains("IsoaSFlus")) {
+//            qDebug() << rgb;
+//            QStringList rgbList = rgb.split(",");
+//            palette.append(QColor(rgbList[1].toInt(), rgbList[2].toInt(), rgbList[3].toInt()));
+////            c = new QColor(rgbList[1].toInt(), rgbList[2].toInt(), rgbList[3].toInt());
+//        } else if (rgb.contains("EOF")) {
+//            calcColor();
+//            qDebug() << c->red() << c->green() << c->blue();
+//            readTemplateCS();
+//            changeColorScheme(tConfig);
+//            save();
+//            QCoreApplication::exit();
+//        }
+//    }
+//}
 
 

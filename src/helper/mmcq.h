@@ -10,7 +10,7 @@ class VBox
 {
 public:
     VBox();
-    explicit VBox(int r1, int g1, int b1, int r2, int g2, int b2);
+    explicit VBox(int r1, int r2, int g1, int g2, int b1, int b2);
     ~VBox();
 
 
@@ -25,7 +25,7 @@ public:
     ~MMCQ();
 
     QList<QColor> get_palette(int color_count=10, int quality=10);
-    static int get_color_index(int r, int g, int b);
+    int get_color_index(int r, int g, int b);
 
 private:
     int sigbits = 5;
@@ -33,6 +33,8 @@ private:
     double fract_by_populations = 0.75;
     int max_iter = 1000;
     QImage *img;
+    int h = 0;
+    int w = 0;
     std::vector<QRgb> pixels;
     std::unordered_map<int, int> histo;
 
